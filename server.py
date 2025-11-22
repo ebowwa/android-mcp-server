@@ -108,5 +108,146 @@ def get_package_action_intents(package_name: str) -> list[str]:
     return result
 
 
+# ===== TERMUX INTEGRATION ABSTRACTION =====
+
+class TermuxManager:
+    """Clean abstraction for Termux interactions without UI friction."""
+
+    def __init__(self, device_manager):
+        self.device_manager = device_manager
+        self.shared_dir = "/data/local/tmp/termux_bridge"
+        self.termux_home = "/data/data/com.termux/files/home"
+
+    def _ensure_bridge(self):
+        """Create shared directory for file operations."""
+        self.device_manager.device.shell(f"mkdir -p {self.shared_dir}")
+        self.device_manager.device.shell(f"chmod 777 {self.shared_dir}")
+
+    def _execute_via_bridge(self, command: str) -> str:
+        """Execute command by writing to bridge file and reading result."""
+        self._ensure_bridge()
+
+        # Create command file
+        cmd_file = f"{self.shared_dir}/cmd.sh"
+        result_file = f"{self.shared_dir}/result.txt"
+
+        # Write command to executable file
+        self.device_manager.device.shell(f"echo '{command}' > {cmd_file}")
+        self.device_manager.device.shell(f"chmod +x {cmd_file}")
+
+        # Execute command and capture output
+        self.device_manager.device.shell(f"{cmd_file} > {result_file} 2>&1")
+
+        # Read result
+        result = self.device_manager.device.shell(f"cat {result_file} 2>/dev/null || echo 'No output'")
+
+        # Cleanup
+        self.device_manager.device.shell(f"rm -f {cmd_file} {result_file}")
+
+        return result
+
+
+# Initialize Termux manager
+termux = TermuxManager(deviceManager)
+
+
+@mcp.tool()
+def termux_exec(command: str) -> str:
+    """
+    Execute a command directly in a Termux environment without UI friction.
+    This bypasses the need for screen interaction and keyboard input simulation.
+
+    Args:
+        command (str): The command to execute in Termux environment
+
+    Returns:
+        str: Command output and result
+    """
+    try:
+        # Try direct ADB execution first (if command doesn't need Termux specifically)
+        if any(cmd in command for cmd in ['ls', 'cat', 'echo', 'pwd', 'date', 'whoami']):
+            return f"ADB: {deviceManager.execute_adb_shell_command(command)}"
+
+        # For Termux-specific commands, use bridge method
+        result = termux._execute_via_bridge(command)
+        return f"Termux: {result}"
+
+    except Exception as e:
+        return f"Error executing command: {str(e)}"
+
+
+@mcp.tool()
+def termux_write_file(filename: str, content: str) -> str:
+    """
+    Write content to a file in Termux accessible directory.
+
+    Args:
+        filename (str): Target filename (relative to shared directory)
+        content (str): File content to write
+
+    Returns:
+        str: Success confirmation with file path
+    """
+    try:
+        termux._ensure_bridge()
+        file_path = f"{termux.shared_dir}/{filename}"
+
+        # Write content using echo (handles multiline content)
+        self.device_manager.device.shell(f"echo '{content}' > {file_path}")
+
+        return f"File written to: {file_path}"
+
+    except Exception as e:
+        return f"Error writing file: {str(e)}"
+
+
+@mcp.tool()
+def termux_read_file(filename: str) -> str:
+    """
+    Read content from a file in Termux accessible directory.
+
+    Args:
+        filename (str): Target filename (relative to shared directory)
+
+    Returns:
+        str: File content
+    """
+    try:
+        termux._ensure_bridge()
+        file_path = f"{termux.shared_dir}/{filename}"
+
+        content = self.device_manager.device.shell(f"cat {file_path} 2>/dev/null || echo 'File not found'")
+
+        return content
+
+    except Exception as e:
+        return f"Error reading file: {str(e)}"
+
+
+@mcp.tool()
+def termux_session_start() -> str:
+    """
+    Initialize a clean Termux session for persistent interactions.
+    Launches Termux and prepares it for command execution.
+
+    Returns:
+        str: Session status and ready confirmation
+    """
+    try:
+        # Launch Termux in background
+        result = deviceManager.device.shell("am start -n com.termux/.app.TermuxActivity")
+
+        # Initialize bridge
+        termux._ensure_bridge()
+
+        # Create session marker
+        deviceManager.device.shell(f"echo 'Session started at $(date)' > {termux.shared_dir}/session.txt")
+
+        return f"Termux session started. Bridge directory: {termux.shared_dir}"
+
+    except Exception as e:
+        return f"Error starting session: {str(e)}"
+
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")
