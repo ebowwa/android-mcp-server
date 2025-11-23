@@ -99,6 +99,43 @@ def get_screenshot() -> Image:
 
 
 @mcp.tool()
+def get_photo_screenshot() -> Image:
+    """Takes a high-quality photo screenshot optimized for text and photos.
+    Uses JPEG format for better quality on image content.
+
+    Returns:
+        Image: the high-quality screenshot
+    """
+    # Take uncompressed screenshot first
+    deviceManager.device.shell("screencap -p /sdcard/photo_raw.png")
+    deviceManager.device.pull("/sdcard/photo_raw.png", "photo_raw.png")
+    deviceManager.device.shell("rm /sdcard/photo_raw.png")
+
+    # Use JPEG with high quality for photos (quality 95, optimize True)
+    try:
+        with PILImage.open("photo_raw.png") as img:
+            # Keep original size for photo quality
+            img.save("photo_screenshot.jpg", "JPEG", quality=95, optimize=True)
+
+        # Clean up temporary file
+        deviceManager.device.shell("rm -f photo_raw.png")
+
+        return Image(path="photo_screenshot.jpg")
+
+    except Exception as e:
+        # Fallback to compressed PNG if JPEG fails
+        deviceManager.device.shell("screencap -p /sdcard/fallback.png")
+        deviceManager.device.pull("/sdcard/fallback.png", "fallback.png")
+        deviceManager.device.shell("rm /sdcard/fallback.png")
+        return Image(path="fallback.png")
+
+    except:
+        # Absolute fallback
+        deviceManager.take_screenshot()
+        return Image(path="compressed_screenshot.png")
+
+
+@mcp.tool()
 def get_package_action_intents(package_name: str) -> list[str]:
     """
     Get all non-data actions from Activity Resolver Table for a package
