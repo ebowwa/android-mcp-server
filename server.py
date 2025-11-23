@@ -193,7 +193,7 @@ def termux_write_file(filename: str, content: str) -> str:
         file_path = f"{termux.shared_dir}/{filename}"
 
         # Write content using echo (handles multiline content)
-        self.device_manager.device.shell(f"echo '{content}' > {file_path}")
+        deviceManager.device.shell(f"echo '{content}' > {file_path}")
 
         return f"File written to: {file_path}"
 
@@ -216,7 +216,7 @@ def termux_read_file(filename: str) -> str:
         termux._ensure_bridge()
         file_path = f"{termux.shared_dir}/{filename}"
 
-        content = self.device_manager.device.shell(f"cat {file_path} 2>/dev/null || echo 'File not found'")
+        content = deviceManager.device.shell(f"cat {file_path} 2>/dev/null || echo 'File not found'")
 
         return content
 
