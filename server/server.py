@@ -4,10 +4,13 @@ import sys
 import yaml
 from mcp.server.fastmcp import FastMCP, Image
 
-from adbdevicemanager import AdbDeviceManager
+try:
+    from .adbdevicemanager import AdbDeviceManager
+except ImportError:
+    from adbdevicemanager import AdbDeviceManager
 
-CONFIG_FILE = "config.yaml"
-CONFIG_FILE_EXAMPLE = "config.yaml.example"
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.yaml")
+CONFIG_FILE_EXAMPLE = os.path.join(os.path.dirname(__file__), "..", "config.yaml.example")
 
 # Load config (make config file optional)
 config = {}
