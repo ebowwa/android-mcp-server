@@ -235,6 +235,31 @@ def termux_read_file(filename: str) -> str:
 
 
 @mcp.tool()
+def termux_execute_direct(command: str) -> str:
+    """
+    Execute a command directly in Termux with a single call.
+    Combines typing and execution in one operation.
+
+    Args:
+        command (str): The command to execute in Termux
+
+    Returns:
+        str: Execution status and any available output
+    """
+    try:
+        # Type the command
+        deviceManager.device.shell(f"input text '{command}'")
+
+        # Execute immediately with Enter key
+        deviceManager.device.shell("input keyevent 66")
+
+        return f"Command executed in Termux: {command}"
+
+    except Exception as e:
+        return f"Error executing command in Termux: {str(e)}"
+
+
+@mcp.tool()
 def termux_session_start() -> str:
     """
     Initialize a clean Termux session for persistent interactions.
